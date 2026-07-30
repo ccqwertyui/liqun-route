@@ -13,4 +13,4 @@
 一键安装与使用指令：
 
 ```bash
-curl -fsSL [https://raw.githubusercontent.com/ccqwertyui/liqun-route/refs/heads/main/dual-route.sh](https://raw.githubusercontent.com/ccqwertyui/liqun-route/refs/heads/main/dual-route.sh) | bash
+curl -fsSL https://raw.githubusercontent.com/ccqwertyui/liqun-route/refs/heads/main/dual-route.sh | bash

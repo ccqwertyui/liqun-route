@@ -1,1 +1,16 @@
-# liqun-route
+# 利群路由切换改进版脚本
+
+特别声明：本脚本基于利群主機 (LeiKwan Host) 官方原版策略路由脚本修改。
+
+对比官方原版，本增强版主要增加了以下两项功能：
+
+1. 精确端口分流
+官方原版脚本仅支持将一整个目标 IP 绑定到一条专线上。本增强版加入了端口级别的精准控制，允许同一个目标 IP 根据不同的端口走不同的路由。例如，你可以让通往海外机器的 443 端口走 CN2 线路，同时让 4443 端口走 9929 线路，实现更灵活的分流。
+
+2. 全局快捷指令
+为了方便日常运维，首次使用一键命令安装脚本后，系统会自动注册快捷指令。以后在服务器的任何目录下，只需要输入 ly 并回车，就可以直接唤出图形化管理菜单，无需再手动执行繁琐的文件路径。
+
+一键安装与使用指令：
+
+```bash
+curl -fsSL [https://raw.githubusercontent.com/ccqwertyui/liqun-route/refs/heads/main/dual-route.sh](https://raw.githubusercontent.com/ccqwertyui/liqun-route/refs/heads/main/dual-route.sh) | bash

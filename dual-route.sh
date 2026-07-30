@@ -53,23 +53,36 @@ PRIO_DDNS=15005
 declare -a FOUND_NAMES
 declare -a FOUND_GWS
 declare -a FOUND_IDS
+SELECTED_ROUTE_IDX=-1
 
 # --- 自动安装与快捷指令绑定 ---
 function check_self_install() {
-    local current_script="$(realpath "$0")"
+    local script_base="$(basename "$0" 2>/dev/null)"
     
-    if [ "$current_script" != "$INSTALL_PATH" ]; then
-        cp -f "$current_script" "$INSTALL_PATH"
-        chmod +x "$INSTALL_PATH"
+    if [ -f "$0" ] && [[ "$script_base" != "bash" && "$script_base" != "sh" ]]; then
+        local current_script="$(realpath "$0")"
+        if [ "$current_script" != "$INSTALL_PATH" ]; then
+            cp -f "$current_script" "$INSTALL_PATH"
+            chmod +x "$INSTALL_PATH"
+        fi
+    else
+        # 兼容 curl 管道执行：通过检查首行判断目标文件是否损坏
+        if [ ! -f "$INSTALL_PATH" ] || ! head -n 1 "$INSTALL_PATH" 2>/dev/null | grep -q "#!/bin/bash"; then
+            curl -fsSL https://raw.githubusercontent.com/ccqwertyui/liqun-route/refs/heads/main/dual-route.sh -o "$INSTALL_PATH" 2>/dev/null || true
+            chmod +x "$INSTALL_PATH" 2>/dev/null || true
+        fi
     fi
 
-    if [ ! -f "$ALIAS_PATH" ] || [ "$(realpath "$ALIAS_PATH")" != "$INSTALL_PATH" ]; then
-        cat << EOF > "$ALIAS_PATH"
+    # 只有当安装文件正常时，才绑定 ly 快捷命令
+    if [ -f "$INSTALL_PATH" ] && head -n 1 "$INSTALL_PATH" 2>/dev/null | grep -q "#!/bin/bash"; then
+        if [ ! -f "$ALIAS_PATH" ] || [ "$(realpath "$ALIAS_PATH" 2>/dev/null)" != "$INSTALL_PATH" ]; then
+            cat << EOF > "$ALIAS_PATH"
 #!/bin/bash
 exec $INSTALL_PATH "\$@"
 EOF
-        chmod +x "$ALIAS_PATH"
-        echo -e "\033[32m[提示] 已成功安装全局快捷指令 'ly'！以后输入 ly 即可调出菜单。\033[0m\n"
+            chmod +x "$ALIAS_PATH"
+            echo -e "\033[32m[提示] 已成功安装全局快捷指令 'ly'！以后输入 ly 即可调出菜单。\033[0m\n"
+        fi
     fi
 }
 
@@ -148,6 +161,7 @@ function select_route_group() {
     local count=${#FOUND_NAMES[@]}
     if [ "$count" -eq 0 ]; then
         echo "错误: 未检测到任何可用线路网关。"
+        SELECTED_ROUTE_IDX=-1
         return 1
     fi
     echo "----------------------------------------------------"
@@ -158,29 +172,30 @@ function select_route_group() {
     done
     echo "----------------------------------------------------"
     local choice
-    read -p "请输入线路对应的数字: " choice
+    read -p "请输入线路对应的数字: " choice < /dev/tty
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "$count" ]; then
         echo "错误: 无效的选项数字。"
+        SELECTED_ROUTE_IDX=-1
         return 1
     fi
-    return $((choice - 1))
+    SELECTED_ROUTE_IDX=$((choice - 1))
+    return 0
 }
 
 # --- 规则管理逻辑 ---
 function add_rule() {
-    select_route_group
-    local idx=$?
-    if [ ${#FOUND_NAMES[@]} -eq 0 ]; then return 1; fi
-    local selected_name="${FOUND_NAMES[$idx]}"
+    select_route_group || return 1
+    local selected_name="${FOUND_NAMES[$SELECTED_ROUTE_IDX]}"
     if [ -z "$selected_name" ]; then return 1; fi
     
     local cidr
     echo ""
-    read -p "请输入目标IP或网段 (例如 8.8.8.8/32): " cidr
+    read -p "请输入目标IP或网段 (例如 8.8.8.8/32): " cidr < /dev/tty
+    if [ -z "$cidr" ]; then echo "错误: 输入不能为空。"; return 1; fi
     if ! [[ "$cidr" == */* ]]; then cidr="${cidr}/32"; fi
 
     local proto
-    read -p "请输入协议 (tcp/udp/all, 默认all): " proto
+    read -p "请输入协议 (tcp/udp/all, 默认all): " proto < /dev/tty
     proto=${proto:-all}
     if [[ "$proto" != "tcp" && "$proto" != "udp" && "$proto" != "all" ]]; then
         echo "错误: 协议只能是 tcp, udp 或 all。"
@@ -189,7 +204,7 @@ function add_rule() {
 
     local port="all"
     if [[ "$proto" != "all" ]]; then
-        read -p "请输入目标端口 (例如 443, 留空表示所有端口): " port
+        read -p "请输入目标端口 (例如 443, 留空表示所有端口): " port < /dev/tty
         port=${port:-all}
         if [[ "$port" != "all" && ! "$port" =~ ^[0-9]+$ ]]; then
             echo "错误: 端口必须是数字。"
@@ -211,15 +226,14 @@ function add_rule() {
 }
 
 function add_ddns_rule() {
-    select_route_group
-    local idx=$?
-    local selected_name="${FOUND_NAMES[$idx]}"
+    select_route_group || return 1
+    local selected_name="${FOUND_NAMES[$SELECTED_ROUTE_IDX]}"
     if [ -z "$selected_name" ]; then return 1; fi
     
     local domain
     echo ""
-    read -p "请输入域名 (A Record): " domain
-    if [ -z "$domain" ]; then return 1; fi
+    read -p "请输入域名 (A Record): " domain < /dev/tty
+    if [ -z "$domain" ]; then echo "错误: 输入不能为空。"; return 1; fi
 
     echo "${domain} ${selected_name}" >> "$DDNS_CONFIG_FILE"
     echo "规则已保存。正在执行解析更新..."
@@ -229,7 +243,7 @@ function add_ddns_rule() {
 function delete_rule() {
     echo "1) 删除静态 IP/端口 规则"
     echo "2) 删除 DDNS 域名规则"
-    read -p "请选择: " dtype
+    read -p "请选择: " dtype < /dev/tty
     local target_file=""
     if [ "$dtype" == "1" ]; then target_file="$CONFIG_FILE"; 
     elif [ "$dtype" == "2" ]; then target_file="$DDNS_CONFIG_FILE"; 
@@ -239,11 +253,15 @@ function delete_rule() {
     
     awk '{print NR") "$0}' "$target_file"
     local line_num
-    read -p "输入要删除的编号: " line_num
-    sed -i "${line_num}d" "$target_file"
-    echo "配置已删除。正在重新应用规则..."
-    apply_saved_rules >/dev/null 2>&1
-    echo "刷新完成。"
+    read -p "输入要删除的编号: " line_num < /dev/tty
+    if [[ "$line_num" =~ ^[0-9]+$ ]]; then
+        sed -i "${line_num}d" "$target_file"
+        echo "配置已删除。正在重新应用规则..."
+        apply_saved_rules >/dev/null 2>&1
+        echo "刷新完成。"
+    else
+        echo "错误: 无效的编号输入。"
+    fi
 }
 
 function refresh_ddns_rules() {
@@ -280,14 +298,14 @@ function manage_cron() {
     local current_cron=$(crontab -l 2>/dev/null)
     if echo "$current_cron" | grep -q "$cron_cmd"; then
         echo "状态: [已启用]"
-        read -p "是否移除自动更新? (y/n): " remove_opt
+        read -p "是否移除自动更新? (y/n): " remove_opt < /dev/tty
         if [[ "$remove_opt" == "y" ]]; then
             crontab -l | grep -v "$cron_cmd" | crontab -
             echo "已移除。"
         fi
     else
         echo "状态: [未启用]"
-        read -p "是否添加每 5 分钟自动更新任务? (y/n): " add_opt
+        read -p "是否添加每 5 分钟自动更新任务? (y/n): " add_opt < /dev/tty
         if [[ "$add_opt" == "y" ]]; then
             (crontab -l 2>/dev/null; echo "*/5 * * * * $cron_cmd >/dev/null 2>&1") | crontab -
             echo "已添加。"
@@ -298,7 +316,7 @@ function manage_cron() {
 function manage_service() {
     if [ -f "$SERVICE_FILE" ]; then
         echo "服务状态: $(systemctl is-active custom-routing.service 2>/dev/null || echo '未知')"
-        read -p "是否卸载开机自启服务? (y/n): " opt
+        read -p "是否卸载开机自启服务? (y/n): " opt < /dev/tty
         if [[ "$opt" == "y" ]]; then
             systemctl stop custom-routing.service 2>/dev/null
             systemctl disable custom-routing.service 2>/dev/null
@@ -307,7 +325,7 @@ function manage_service() {
             echo "已卸载。"
         fi
     else
-        read -p "是否安装开机自启服务? (y/n): " opt
+        read -p "是否安装开机自启服务? (y/n): " opt < /dev/tty
         if [[ "$opt" == "y" ]]; then
             cat > "$SERVICE_FILE" << EOF
 [Unit]
@@ -430,7 +448,7 @@ function main_menu() {
         echo "7. 强制刷新所有规则"
         echo "0. 退出"
         echo "-----------------------------------------"
-        read -p "选择: " choice
+        read -p "选择: " choice < /dev/tty
         case $choice in
             1) add_rule ;;
             2) add_ddns_rule ;;

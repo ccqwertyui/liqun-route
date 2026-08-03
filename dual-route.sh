@@ -525,7 +525,7 @@ function manage_mwan() {
                 select_route_group || continue
                 local back_rt="${FOUND_NAMES[$SELECTED_ROUTE_IDX]}"
                 
-                read -p "目标IP (例 156.226.173.35/32): " cidr < /dev/tty
+                read -p "目标IP (例 8.8.8.8/32): " cidr < /dev/tty
                 read -p "协议 (tcp/udp): " proto < /dev/tty
                 read -p "端口 (留空为all): " port < /dev/tty
                 port=${port:-all}

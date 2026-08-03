@@ -20,12 +20,12 @@
 * **核心特性**：内置全自动智能调度引擎（MWAN）、四种高可用选路模式、自定义防抖缓冲机制及可视化任务列表。
 * **一键安装指令**：
 ```bash
-curl -fsSL [https://raw.githubusercontent.com/ccqwertyui/liqun-route/refs/heads/main/dual-route.sh](https://raw.githubusercontent.com/ccqwertyui/liqun-route/refs/heads/main/dual-route.sh) -o /usr/local/bin/dual-route.sh && chmod +x /usr/local/bin/dual-route.sh && /usr/local/bin/dual-route.sh
+curl -fsSL https://raw.githubusercontent.com/ccqwertyui/liqun-route/refs/heads/main/dual-route.sh -o /usr/local/bin/dual-route.sh && chmod +x /usr/local/bin/dual-route.sh && /usr/local/bin/dual-route.sh
 ```
 
 ### 📜 历史版本：v4.5 (经典纯净版)
 * **核心特性**：仅包含基础多出口策略路由、端口精准分流、NAT 地址伪装与 DDNS 功能，不含后台智能调度，极致轻量。
 * **一键安装指令**：
 ```bash
-curl -fsSL [https://raw.githubusercontent.com/ccqwertyui/liqun-route/refs/heads/main/dual-route-v4.5.sh](https://raw.githubusercontent.com/ccqwertyui/liqun-route/refs/heads/main/dual-route-v4.5.sh) -o /usr/local/bin/dual-route.sh && chmod +x /usr/local/bin/dual-route.sh && /usr/local/bin/dual-route.sh
+curl -fsSL https://raw.githubusercontent.com/ccqwertyui/liqun-route/refs/heads/main/dual-route-v4.5.sh -o /usr/local/bin/dual-route.sh && chmod +x /usr/local/bin/dual-route.sh && /usr/local/bin/dual-route.sh
 ```
